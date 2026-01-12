@@ -18,11 +18,32 @@ extract_test_data = pd.read_csv('letterboxd-quang_ak47-2026-01-11-12-28-utc/rati
 movie_data['year'] = pd.DatetimeIndex(movie_data['release_date']).year
 
 def find_movie(title, year):
-    result = movie_data[(movie_data['title'] == title) & (movie_data['year'] == year)]
-    if len(result) == 0:
-        print("No movie found.")
-        return None
-    return result.iloc[0]
+    # first try to find movie with exact title and year
+    result = movie_data[
+        (movie_data['title'] == title) & 
+        (movie_data['year'] == year)]
+    if len(result) > 0:
+        return result.iloc[0]
+    
+    # if no movie was found from that year, expand search by +/- 2 year
+    result = movie_data[
+        (movie_data['title'] == title) & 
+        (movie_data['year'] >= year - 2) & 
+        (movie_data['year'] <= year + 2)]
+    if len(result) > 0:
+        print(f"Warning: '{title}' found with year {result.iloc[0]['year']} instead of {year}")
+        return result.iloc[0]
+
+    # if none were found within +/- 2 year search, return most popular movie with that title (most votes on IMDb)
+    result = movie_data[movie_data['title'] == title]
+    if len(result) > 0:
+        best_match = result.sort_values('vote_count', ascending=False).iloc[0]
+        print(f"Warning: '{title}' found but year mismatch: {best_match['year']} vs {year}")
+        print(f"Maybe you were searching for: {best_match['title']} ({best_match['year']})")
+        return best_match
+
+    print(f"Error: '{title}' ({year}) not found.")
+    return None
 
 # #binary liked column (4+ stars)
 # extract_test_data['Liked'] = (extract_test_data['Rating'] >= 4).astype(int)
