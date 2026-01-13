@@ -2,7 +2,9 @@ import kaggle
 import pandas as pd
 from xgboost import XGBClassifier
 import re
-
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, classification_report
 
 # export dataset from kaggle
 # kaggle.api.dataset_download_files('alanvourch/tmdb-movies-daily-updates', 
@@ -63,10 +65,71 @@ def find_movie(title, year):
     print(f"Error: '{title_norm}' ({year}) not found.")
     return None
 
-
 #binary liked column (4+ stars)
 extract_test_data['Liked'] = (extract_test_data['Rating'] >= 4).astype(int)
-# print(f"Movies I liked: {(extract_test_data['Liked'] == 1).sum()}")
-# print(f"Mid ahh movies: {(extract_test_data['Liked'] == 0).sum()}")
-# print(f"Movies I liked: {extract_test_data[extract_test_data['Liked'] == 1][['Name', 'Rating', 'Liked']].head(10)}")
-# print(f"Favourites: {extract_test_data[extract_test_data['Rating'] == 5]}")
+
+# find movies from my letterboxd data in tmdb
+matches = []
+
+for _, row in extract_test_data.iterrows():
+    movie = find_movie(row["Name"], row["Year"])
+    matches.append(movie)
+
+extract_test_data["tmdb_match"] = matches
+
+total = len(extract_test_data)
+found = extract_test_data["tmdb_match"].notna().sum()
+missing = extract_test_data[extract_test_data["tmdb_match"].isna()]
+
+# filter to only successfully matched movies
+matched_movies = extract_test_data[extract_test_data["tmdb_match"].notna()].copy()
+
+# extract the features we need from tmdb_match
+tmdb_expanded = matched_movies["tmdb_match"].apply(
+    lambda m: {} if m is None or (isinstance(m, float) and pd.isna(m)) else m.to_dict()
+).apply(pd.Series)
+
+# pull only the columns you care about (and fill missing safely)
+cols_needed = ["overview", "genres", "director", "cast", "original_language", "id", "title", "year", "vote_count", "vote_average"]
+tmdb_expanded = tmdb_expanded.reindex(columns=cols_needed).fillna("")
+
+matched_movies = pd.concat([matched_movies.reset_index(drop=True), tmdb_expanded.reset_index(drop=True)], axis=1)
+
+
+print(f"Working with {len(matched_movies)} movies")
+print(f"Liked: {(matched_movies['Liked'] == 1).sum()}")
+print(f"Didn't like: {(matched_movies['Liked'] == 0).sum()}")
+
+missing_overview = matched_movies[matched_movies['overview'] == ""]
+print(f"\nMovies with missing overviews: {len(missing_overview)}")
+if len(missing_overview) > 0:
+    print(missing_overview[['Name', 'Year']])
+
+
+# combine extracted features into one field: overview, genres, director, cast, and original language
+matched_movies["text_features"] = (
+    matched_movies["overview"] + " " +
+    matched_movies["genres"] + " " +
+    matched_movies["director"] + " " +
+    matched_movies["cast"] + " " +
+    matched_movies["original_language"]
+)
+
+# create tf-idf vectoriser
+vectoriser = TfidfVectorizer(
+    max_features=500, # limits vocab with 500 most important words since we are using small dataset
+    min_df=2, # word has to appear in at least two movies
+    stop_words='english' # remove common words like 'the', 'a', 'is'
+)
+
+# convert text to tf-idf vectors
+X = vectoriser.fit_transform(matched_movies['text_features'])
+y = matched_movies['Liked'].values
+
+print(f"\nTF-IDF matrix shape: {X.shape}")
+print(f"Features: {X.shape[1]} TF-IDF features")
+print(f"Samples: {X.shape[0]} movies")
+
+# see some of the important words
+feature_names = vectoriser.get_feature_names_out()
+print(f"\nSample TF-IDF features: {list(feature_names[:20])}")
