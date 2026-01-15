@@ -55,9 +55,9 @@ def main():
 
     # create and train the XGBoost model
     model = XGBClassifier(
-        n_estimators=100, # number of trees
-        max_depth=3, # keep trees shallow (helps with small dataset)
-        learning_rate=0.1, # how fast the model learns
+        n_estimators=50, # number of trees - less prevents overfitting on small data
+        max_depth=2, # keep trees shallow (helps with small dataset), the lower the shallower
+        learning_rate=0.05, # how fast the model learns, slower increases accuracy
         random_state=42
     )
 
