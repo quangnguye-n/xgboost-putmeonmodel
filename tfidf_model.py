@@ -1,4 +1,6 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics import accuracy_score, classification_report
+from xgboost import XGBClassifier
 from config import TFIDF_MAX_FEATURES, TFIDF_MIN_DF, TFIDF_STOP_WORDS, TFIDF_NGRAM_RANGE
 
 # create tf-idf vectoriser

@@ -6,10 +6,15 @@ def add_liked_label(ratings_df):
     return ratings_df
 
 def expand_tmdb_fields(matched_df):
-# extract the features we need from tmdb_match
-    tmdb_expanded = matched_df["tmdb_match"].apply(
-        lambda m: {} if m is None or (isinstance(m, float) and pd.isna(m)) else m.to_dict()
-    ).apply(pd.Series)
+    # extract the features we need from tmdb_match
+    def safe_extract(m):
+        if m is None or (isinstance(m, float) and pd.isna(m)):
+            return {}
+        if isinstance(m, pd.Series):
+            return m.to_dict()
+        return {}
+    
+    tmdb_expanded = matched_df["tmdb_match"].apply(safe_extract).apply(pd.Series)
 
     # pull only the columns you care about (and fill missing safely)
     cols = ["id","title","year","overview","genres","director","cast","original_language","vote_count","vote_average","runtime"]

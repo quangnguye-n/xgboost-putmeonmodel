@@ -8,7 +8,7 @@ TFIDF_MIN_DF = 2
 TFIDF_STOP_WORDS = "english"
 TFIDF_NGRAM_RANGE = (1, 2)
 
-# Field weights (you can tune these)
+# how much weight each column holds in IDF
 W_OVERVIEW = 3
 W_GENRES = 2
 W_DIRECTOR = 1
